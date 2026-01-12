@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wallet Keys</title>
+    <style>
+        body { font-family: 'Segoe UI', sans-serif; max-width: 600px; margin: 50px auto; padding: 20px; }
+        .container { background: #1a1a1a; color: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        input, button { padding: 12px; margin: 10px 0; border: none; border-radius: 8px; font-size: 16px; width: 100%; box-sizing: border-box; }
+        input { background: #333; color: white; }
+        button { background: #007bff; color: white; cursor: pointer; transition: background 0.3s; }
+        button:hover { background: #0056b3; }
+        .key-item { background: #2a2a2a; padding: 15px; margin: 10px 0; border-radius: 10px; cursor: pointer; }
+        .copy-btn { background: #28a745; font-size: 14px; padding: 5px 10px; width: auto; margin-left: 10px; }
+        .hidden { display: none; }
+        .status { padding: 10px; border-radius: 5px; margin: 10px 0; }
+        .success { background: #28a745; }
+        .error { background: #dc3545; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Wallet Keys</h1>
+        
+        <input type="password" id="masterPassword" placeholder="Введіть мастер-пароль" />
+        <button onclick="unlock()">Розблокувати</button>
+        
+        <div id="status" class="status hidden"></div>
+        
+        <div id="keysContainer" class="hidden">
+            <h3>Кошельки:</h3>
+            <div id="keysList"></div>
+            <button onclick="addWallet()" style="background: #17a2b8;">+ Додати гаманець</button>
+        </div>
+    </div>
+
+    <script src="./index.js"></script>
+</body>
+</html>
