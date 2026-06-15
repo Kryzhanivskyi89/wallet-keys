@@ -1,0 +1,185 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #0d0d0d;
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 20px;
+    }
+
+    .container {
+      background: #1a1a1a;
+      color: #e5e5e5;
+      padding: 36px;
+      border-radius: 18px;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+      width: 100%;
+      max-width: 620px;
+    }
+
+    h1 { font-size: 22px; font-weight: 700; margin-bottom: 6px; letter-spacing: -0.3px; }
+    .app-subtitle { font-size: 12px; color: #555; margin-bottom: 28px; }
+
+    /* Inputs */
+    .field { margin-bottom: 12px; position: relative; }
+    .field label { display: block; font-size: 12px; color: #666; margin-bottom: 6px; font-weight: 500; }
+    input[type="password"],
+    input[type="text"] {
+      width: 100%;
+      padding: 12px 14px;
+      background: #262626;
+      border: 1px solid #333;
+      border-radius: 10px;
+      color: #e5e5e5;
+      font-size: 15px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus { border-color: #4a9eff; }
+
+    /* Buttons */
+    .btn {
+      width: 100%;
+      padding: 12px;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-top: 4px;
+    }
+    .btn-primary { background: #2563eb; color: white; }
+    .btn-primary:hover { background: #1d4ed8; }
+    .btn-primary:active { background: #1e40af; transform: scale(0.99); }
+
+    .btn-add { background: #0e7490; color: white; margin-top: 16px; }
+    .btn-add:hover { background: #0369a1; }
+
+    .btn-lock { background: #2a2a2a; color: #888; border: 1px solid #333; margin-top: 8px; font-size: 13px; padding: 9px; }
+    .btn-lock:hover { background: #333; color: #bbb; }
+
+    .btn-copy { background: #166534; color: white; }
+    .btn-copy:hover { background: #15803d; }
+    .btn-copy-secondary { background: #374151; color: #d1d5db; }
+    .btn-copy-secondary:hover { background: #4b5563; }
+    .btn-delete { background: #7f1d1d; color: #fca5a5; }
+    .btn-delete:hover { background: #991b1b; }
+
+    /* Status */
+    .status {
+      padding: 10px 14px;
+      border-radius: 8px;
+      margin: 12px 0;
+      font-size: 14px;
+      font-weight: 500;
+      display: none;
+    }
+    .status.show { display: block; }
+    .status.success { background: #052e16; border: 1px solid #166534; color: #4ade80; }
+    .status.error   { background: #2d0a0a; border: 1px solid #7f1d1d; color: #f87171; }
+    .status.info    { background: #0c1a2e; border: 1px solid #1e3a5f; color: #60a5fa; }
+    .status.warning { background: #1c1300; border: 1px solid #713f12; color: #fbbf24; }
+
+    /* Lock banner */
+    .lock-banner {
+      background: #1c1300;
+      border: 1px solid #713f12;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-size: 12px;
+      color: #fbbf24;
+      display: none;
+      margin-bottom: 12px;
+    }
+    .lock-banner.show { display: block; }
+
+    /* Attempts */
+    .attempts-bar {
+      display: flex;
+      gap: 5px;
+      margin-top: 8px;
+    }
+    .attempt-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: #333;
+      transition: background 0.3s;
+    }
+    .attempt-dot.used { background: #ef4444; }
+
+    /* Wallet cards */
+    .wallets-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 20px 0 12px;
+    }
+    .wallets-header h3 { font-size: 14px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.06em; }
+    .wallet-count { font-size: 12px; color: #555; }
+
+    .wallet-card {
+      background: #222;
+      border: 1px solid #2e2e2e;
+      padding: 16px;
+      margin-bottom: 10px;
+      border-radius: 12px;
+      transition: border-color 0.2s;
+    }
+    .wallet-card:hover { border-color: #3a3a3a; }
+    .wlabel { font-size: 11px; color: #555; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+    .wvalue {
+      background: #111;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      padding: 10px 12px;
+      word-break: break-all;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 13px;
+      color: #d1d5db;
+      line-height: 1.5;
+    }
+    .btn-row { display: flex; gap: 8px; margin-top: 12px; }
+    .btn-row .btn { margin-top: 0; flex: 1; padding: 9px; font-size: 13px; }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,0.75);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+      display: none;
+    }
+    .modal-overlay.open { display: flex; }
+    .modal {
+      background: #1e1e1e;
+      border: 1px solid #2e2e2e;
+      border-radius: 16px;
+      padding: 28px;
+      width: 100%;
+      max-width: 480px;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.7);
+    }
+    .modal h3 { font-size: 17px; font-weight: 700; margin-bottom: 20px; }
+    .modal .field { margin-bottom: 16px; }
+    .modal-btns { display: flex; gap: 10px; margin-top: 20px; }
+    .modal-btns .btn { margin-top: 0; }
+    .btn-cancel { background: #2a2a2a; color: #888; border: 1px solid #333; }
+    .btn-cancel:hover { background: #333; }
+    .btn-save { background: #2563eb; color: white; }
+    .btn-save:hover { background: #1d4ed8; }
+
+    .hidden { display: none !important; }
+
+    .divider { height: 1px; background: #222; margin: 20px 0; }
+
+    .clipboard-notice {
+      font-size: 11px;
+      color: #555;
+      text-align: center;
+      margin-top: 8px;
+    }
