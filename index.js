@@ -14,6 +14,7 @@ class IDBStore {
         if (!db.objectStoreNames.contains(this.storeName)) {
           db.createObjectStore(this.storeName, { keyPath: 'id' });
         }
+        // migrate old records
         const store = e.target.transaction.objectStore(this.storeName);
         const cursorReq = store.openCursor();
         cursorReq.onsuccess = (ev) => {
@@ -140,7 +141,7 @@ class WalletKeyManager {
     const pk = privateKey && privateKey.trim() ? privateKey.trim() : '';
     if (!seed && !pk) throw new Error('Need seed or private key');
     const encryptedSeed = seed ? await this.encryptText(seed, password) : null;
-    const encryptedPk = pk ? await this.encryptText(pk, password) : null;
+    const encryptedPk   = pk   ? await this.encryptText(pk,   password) : null;
     return this.store.put({ id: addr, encryptedSeed, encryptedPk, updatedAt: Date.now() });
   }
 
@@ -151,7 +152,7 @@ class WalletKeyManager {
     for (const item of all) {
       try {
         const seedPhrase = item.encryptedSeed ? await this.decryptText(item.encryptedSeed, password) : '';
-        const privateKey = item.encryptedPk ? await this.decryptText(item.encryptedPk, password) : '';
+        const privateKey = item.encryptedPk   ? await this.decryptText(item.encryptedPk,   password) : '';
         wallets.push({ address: item.id, seedPhrase, privateKey });
       } catch {
         throw new Error('Wrong password');
@@ -168,37 +169,35 @@ class WalletKeyManager {
 
 // ===== App state =====
 const manager = new WalletKeyManager();
-let currentPassword = '';
-let currentWallets = [];
-let failedAttempts = 0;
-const MAX_ATTEMPTS = 5;
+let currentPassword  = '';
+let currentWallets   = [];
+let failedAttempts   = 0;
+const MAX_ATTEMPTS   = 5;
 
-// Auto-lock
-const LOCK_TIMEOUT = 5 * 60 * 1000; // 5 хвилин
-let lockTimer = null;
-let lockCountdownTimer = null;
-let lockAt = null;
+// Auto-lock (5 min inactivity)
+const LOCK_TIMEOUT = 5 * 60 * 1000;
+let lockTimer         = null;
+let lockCountdownInt  = null;
+let lockAt            = null;
 
 function resetLockTimer() {
   if (!currentPassword) return;
   clearTimeout(lockTimer);
-  lockAt = Date.now() + LOCK_TIMEOUT;
+  lockAt    = Date.now() + LOCK_TIMEOUT;
   lockTimer = setTimeout(lock, LOCK_TIMEOUT);
-  updateCountdown();
+  // restart countdown display without recreating interval if already running
+  if (!lockCountdownInt) startCountdownDisplay();
 }
 
-function updateCountdown() {
-  clearInterval(lockCountdownTimer);
-  if (!currentPassword) return;
-  const banner = document.getElementById('lockBanner');
-  banner.classList.add('show');
-  lockCountdownTimer = setInterval(() => {
+function startCountdownDisplay() {
+  document.getElementById('lockBanner').classList.add('show');
+  lockCountdownInt = setInterval(() => {
     const remaining = Math.max(0, lockAt - Date.now());
     const m = Math.floor(remaining / 60000);
     const s = Math.floor((remaining % 60000) / 1000);
     document.getElementById('lockCountdown').textContent =
       m + ':' + String(s).padStart(2, '0');
-    if (remaining <= 0) { clearInterval(lockCountdownTimer); lock(); }
+    if (remaining <= 0) { clearInterval(lockCountdownInt); lockCountdownInt = null; lock(); }
   }, 1000);
 }
 
@@ -208,9 +207,10 @@ function updateCountdown() {
 
 function lock() {
   currentPassword = '';
-  currentWallets = [];
+  currentWallets  = [];
   clearTimeout(lockTimer);
-  clearInterval(lockCountdownTimer);
+  clearInterval(lockCountdownInt);
+  lockCountdownInt = null;
   document.getElementById('lockBanner').classList.remove('show');
   document.getElementById('keysContainer').classList.add('hidden');
   document.getElementById('loginBlock').classList.remove('hidden');
@@ -224,19 +224,16 @@ const keysContainerEl  = document.getElementById('keysContainer');
 const keysListEl       = document.getElementById('keysList');
 const statusEl         = document.getElementById('status');
 const unlockBtn        = document.getElementById('unlockBtn');
-const lockBtn          = document.getElementById('lockBtn');
-const addWalletBtn     = document.getElementById('addWalletBtn');
-const modalOverlay     = document.getElementById('modalOverlay');
 
-// Enter key on password field
 masterPasswordEl.addEventListener('keydown', e => { if (e.key === 'Enter') unlock(); });
-
 unlockBtn.addEventListener('click', unlock);
-lockBtn.addEventListener('click', lock);
-addWalletBtn.addEventListener('click', openModal);
+document.getElementById('lockBtn').addEventListener('click', lock);
+document.getElementById('addWalletBtn').addEventListener('click', openModal);
 document.getElementById('modalCancel').addEventListener('click', closeModal);
 document.getElementById('modalSave').addEventListener('click', saveWallet);
-modalOverlay.addEventListener('click', e => { if (e.target === modalOverlay) closeModal(); });
+document.getElementById('modalOverlay').addEventListener('click', e => {
+  if (e.target === document.getElementById('modalOverlay')) closeModal();
+});
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
 
 // ===== Unlock =====
@@ -244,63 +241,67 @@ async function unlock() {
   if (failedAttempts >= MAX_ATTEMPTS) {
     return showStatus('Забагато спроб. Перезавантаж сторінку.', 'error');
   }
-
   const password = masterPasswordEl.value;
   if (!password) return showStatus('Введіть пароль!', 'error');
 
-  unlockBtn.disabled = true;
-  unlockBtn.textContent = 'Розшифровую...';
+  unlockBtn.disabled     = true;
+  unlockBtn.textContent  = 'Розшифровую...';
 
   try {
-    currentWallets = await manager.getWallets(password);
+    currentWallets  = await manager.getWallets(password);
     currentPassword = password;
-    failedAttempts = 0;
+    failedAttempts  = 0;
     updateAttemptDots();
 
     renderWallets(currentWallets);
     keysContainerEl.classList.remove('hidden');
     document.getElementById('loginBlock').classList.add('hidden');
     resetLockTimer();
+    startCountdownDisplay();
 
-    if (currentWallets.length === 0) showStatus('Гаманців не знайдено. Додайте перший!', 'info');
-    else showStatus('Розблоковано · ' + currentWallets.length + ' гаманців', 'success');
+    showStatus(
+      currentWallets.length === 0
+        ? 'Гаманців не знайдено. Додайте перший!'
+        : 'Розблоковано · ' + currentWallets.length + ' гаманців',
+      currentWallets.length === 0 ? 'info' : 'success'
+    );
   } catch {
     failedAttempts++;
     updateAttemptDots();
     const left = MAX_ATTEMPTS - failedAttempts;
     if (left <= 0) {
       showStatus('Вичерпано всі спроби. Перезавантаж сторінку.', 'error');
-      unlockBtn.disabled = true;
       unlockBtn.textContent = 'Заблоковано';
-      return;
+      return; // залишаємо disabled
     }
     showStatus('Неправильний пароль! Залишилось спроб: ' + left, 'error');
-  } finally {
-    if (failedAttempts < MAX_ATTEMPTS) {
-      unlockBtn.disabled = false;
-      unlockBtn.textContent = 'Розблокувати';
-    }
+    unlockBtn.disabled    = false;
+    unlockBtn.textContent = 'Розблокувати';
   }
 }
 
 function updateAttemptDots() {
   for (let i = 0; i < MAX_ATTEMPTS; i++) {
-    const dot = document.getElementById('d' + i);
-    if (dot) dot.classList.toggle('used', i < failedAttempts);
+    document.getElementById('d' + i)?.classList.toggle('used', i < failedAttempts);
   }
 }
 
 // ===== Render wallets =====
 function renderWallets(wallets) {
   document.getElementById('walletCount').textContent = wallets.length + ' шт.';
+
   keysListEl.innerHTML = wallets.map((w, idx) => `
     <div class="wallet-card">
       <div class="wlabel">Адреса</div>
       <div class="wvalue">${escapeHtml(w.address)}</div>
       <div class="btn-row">
-        ${w.seedPhrase ? `<button class="btn btn-copy" data-action="copy-seed" data-idx="${idx}">Копіювати seed</button>` : ''}
-        ${w.privateKey ? `<button class="btn btn-copy-secondary" data-action="copy-pk" data-idx="${idx}">Копіювати PK</button>` : ''}
-        <button class="btn btn-delete" data-action="delete" data-idx="${idx}">Видалити</button>
+        ${w.seedPhrase
+          ? `<button class="btn btn-copy-seed" data-action="copy-seed" data-idx="${idx}">🌱 Seed</button>`
+          : ''}
+        ${w.privateKey
+          ? `<button class="btn btn-copy-pk" data-action="copy-pk" data-idx="${idx}">🔑 PK</button>`
+          : ''}
+        <button class="btn btn-delete" data-action="delete" data-idx="${idx}">🗑 Видалити</button>
       </div>
     </div>
   `).join('');
@@ -308,8 +309,8 @@ function renderWallets(wallets) {
   keysListEl.querySelectorAll('button[data-action]').forEach(btn => {
     btn.addEventListener('click', async (e) => {
       const action = e.currentTarget.dataset.action;
-      const idx = Number(e.currentTarget.dataset.idx);
-      const w = currentWallets[idx];
+      const idx    = Number(e.currentTarget.dataset.idx);
+      const w      = currentWallets[idx];
       if (!w) return;
 
       if (action === 'copy-seed') {
@@ -321,8 +322,10 @@ function renderWallets(wallets) {
         copyText(w.privateKey, 'Приватний ключ скопійовано');
       }
       if (action === 'delete') {
-        const confirmDelete = confirm(`Видалити гаманець?\n${w.address}\n\nЦю дію не можна скасувати!`);
-        if (!confirmDelete) return;
+        const ok = confirm(
+          'Видалити гаманець?\n\n' + w.address + '\n\nЦю дію не можна скасувати!'
+        );
+        if (!ok) return;
         try {
           await manager.deleteWallet(w.address);
           currentWallets = currentWallets.filter((_, i) => i !== idx);
@@ -339,20 +342,15 @@ function renderWallets(wallets) {
 // ===== Modal =====
 function openModal() {
   if (!currentPassword) return showStatus('Спочатку розблокуй', 'error');
-  document.getElementById('mAddress').value = '';
-  document.getElementById('mSeed').value = '';
-  document.getElementById('mPk').value = '';
-  modalOverlay.classList.add('open');
+  ['mAddress', 'mSeed', 'mPk'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('modalOverlay').classList.add('open');
   setTimeout(() => document.getElementById('mAddress').focus(), 50);
 }
 
 function closeModal() {
-  modalOverlay.classList.remove('open');
-  // Очистити поля після закриття
+  document.getElementById('modalOverlay').classList.remove('open');
   setTimeout(() => {
-    document.getElementById('mAddress').value = '';
-    document.getElementById('mSeed').value = '';
-    document.getElementById('mPk').value = '';
+    ['mAddress', 'mSeed', 'mPk'].forEach(id => document.getElementById(id).value = '');
   }, 200);
 }
 
@@ -361,11 +359,13 @@ async function saveWallet() {
   const seedPhrase = document.getElementById('mSeed').value;
   const privateKey = document.getElementById('mPk').value;
 
-  if (!address.trim()) return showStatus('Адреса обов\u02bcязкова', 'error');
-  if (!seedPhrase.trim() && !privateKey.trim()) return showStatus('Введи seed і/або приватний ключ', 'error');
+  if (!address.trim())
+    return showStatus('Адреса обов\u02bcязкова', 'error');
+  if (!seedPhrase.trim() && !privateKey.trim())
+    return showStatus('Введи seed і/або приватний ключ', 'error');
 
   const saveBtn = document.getElementById('modalSave');
-  saveBtn.disabled = true;
+  saveBtn.disabled    = true;
   saveBtn.textContent = 'Шифрую...';
 
   try {
@@ -374,34 +374,32 @@ async function saveWallet() {
     currentWallets = await manager.getWallets(currentPassword);
     renderWallets(currentWallets);
     showStatus('Гаманець збережено!', 'success');
-  } catch(e) {
+  } catch (e) {
     showStatus('Помилка: ' + e.message, 'error');
   } finally {
-    saveBtn.disabled = false;
+    saveBtn.disabled    = false;
     saveBtn.textContent = 'Зберегти';
   }
 }
 
-// ===== Clipboard with auto-clear =====
-let clipClearTimer = null;
+// ===== Clipboard with 30s auto-clear =====
+let clipClearInt = null;
 
 function copyText(text, label) {
   navigator.clipboard.writeText(String(text))
     .then(() => {
-      showStatus(label + ' · очиститься через 30 сек', 'success');
-
-      clearTimeout(clipClearTimer);
+      showStatus(label + ' · буфер очиститься через 30 сек', 'success');
+      clearInterval(clipClearInt);
       let secs = 30;
       const notice = document.getElementById('clipNotice');
       notice.textContent = '📋 Буфер очиститься через ' + secs + ' сек';
-
-      clipClearTimer = setInterval(() => {
+      clipClearInt = setInterval(() => {
         secs--;
         if (secs <= 0) {
-          clearInterval(clipClearTimer);
+          clearInterval(clipClearInt);
           navigator.clipboard.writeText('').catch(() => {});
           notice.textContent = '✓ Буфер очищено';
-          setTimeout(() => notice.textContent = '', 2000);
+          setTimeout(() => { notice.textContent = ''; }, 2000);
         } else {
           notice.textContent = '📋 Буфер очиститься через ' + secs + ' сек';
         }
@@ -411,11 +409,12 @@ function copyText(text, label) {
 }
 
 // ===== Utils =====
+let statusTimer = null;
 function showStatus(message, type) {
   statusEl.textContent = message;
-  statusEl.className = 'status ' + type + ' show';
-  clearTimeout(statusEl._timer);
-  statusEl._timer = setTimeout(() => statusEl.classList.remove('show'), 3000);
+  statusEl.className   = 'status ' + type + ' show';
+  clearTimeout(statusTimer);
+  statusTimer = setTimeout(() => statusEl.classList.remove('show'), 3500);
 }
 
 function escapeHtml(s) {
